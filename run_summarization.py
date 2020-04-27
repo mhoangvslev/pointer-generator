@@ -42,6 +42,9 @@ tf.app.flags.DEFINE_boolean('single_pass', False, 'For decode mode only. If True
 # Where to save output
 tf.app.flags.DEFINE_string('log_root', '', 'Root directory for all logging.')
 tf.app.flags.DEFINE_string('exp_name', '', 'Name for experiment. Logs will be saved in a directory with this name, under log_root.')
+tf.app.flags.DEFINE_integer('max_train_iter', 10000, 'max iterations to train')
+tf.app.flags.DEFINE_integer('save_model_every', 1000, 'save the model every N iterations')
+tf.app.flags.DEFINE_integer('model_max_to_keep', 5, 'save latest N models')
 
 # Hyperparameters
 tf.app.flags.DEFINE_integer('hidden_dim', 256, 'dimension of RNN hidden states')
@@ -188,7 +191,7 @@ def run_training(model, batcher, sess_context_manager, sv, summary_writer):
     if FLAGS.debug: # start the tensorflow debugger
       sess = tf_debug.LocalCLIDebugWrapperSession(sess)
       sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
-    while True: # repeats until interrupted
+    for _ in range(FLAGS.max_train_iter): # repeats until interrupted
       batch = batcher.next_batch()
 
       tf.logging.info('running training step...')
