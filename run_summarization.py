@@ -100,13 +100,13 @@ def calc_running_avg_loss(loss, running_avg_loss, summary_writer, step, decay=0.
   tag_name = 'running_avg_loss/decay=%f' % (decay)
   loss_sum.value.add(tag=tag_name, simple_value=running_avg_loss)
   summary_writer.add_summary(loss_sum, step)
-  tf.logging.info('running_avg_loss: %f', running_avg_loss)
+  tf.compat.v1.logging.info('running_avg_loss: %f', running_avg_loss)
   return running_avg_loss
 
 
 def restore_best_model():
   """Load bestmodel file from eval directory, add variables for adagrad, and save to train directory"""
-  tf.logging.info("Restoring bestmodel for training...")
+  tf.compat.v1.logging.info("Restoring bestmodel for training...")
 
   # Initialize all vars in the model
   sess = tf.Session(config=util.get_config())
@@ -131,7 +131,7 @@ def restore_best_model():
 
 def convert_to_coverage_model():
   """Load non-coverage checkpoint, add initialized extra variables for coverage, and save as new checkpoint"""
-  tf.logging.info("converting non-coverage model to coverage model..")
+  tf.compat.v1.logging.info("converting non-coverage model to coverage model..")
 
   # initialize an entire coverage model from scratch
   sess = tf.Session(config=util.get_config())
@@ -174,19 +174,19 @@ def setup_training(model, batcher):
                      save_model_secs=60, # checkpoint every 60 secs
                      global_step=model.global_step)
   summary_writer = sv.summary_writer
-  tf.logging.info("Preparing or waiting for session...")
+  tf.compat.v1.logging.info("Preparing or waiting for session...")
   sess_context_manager = sv.prepare_or_wait_for_session(config=util.get_config())
-  tf.logging.info("Created session.")
+  tf.compat.v1.logging.info("Created session.")
   try:
     run_training(model, batcher, sess_context_manager, sv, summary_writer) # this is an infinite loop until interrupted
   except KeyboardInterrupt:
-    tf.logging.info("Caught keyboard interrupt on worker. Stopping supervisor...")
+    tf.compat.v1.logging.info("Caught keyboard interrupt on worker. Stopping supervisor...")
     sv.stop()
 
 
 def run_training(model, batcher, sess_context_manager, sv, summary_writer):
   """Repeatedly runs training iterations, logging loss to screen and writing summaries"""
-  tf.logging.info("starting run_training")
+  tf.compat.v1.logging.info("starting run_training")
   with sess_context_manager as sess:
     if FLAGS.debug: # start the tensorflow debugger
       sess = tf_debug.LocalCLIDebugWrapperSession(sess)
@@ -194,21 +194,21 @@ def run_training(model, batcher, sess_context_manager, sv, summary_writer):
     for _ in range(FLAGS.max_train_iter): # repeats until interrupted
       batch = batcher.next_batch()
 
-      tf.logging.info('running training step...')
+      tf.compat.v1.logging.info('running training step...')
       t0=time.time()
       results = model.run_train_step(sess, batch)
       t1=time.time()
-      tf.logging.info('seconds for training step: %.3f', t1-t0)
+      tf.compat.v1.logging.info('seconds for training step: %.3f', t1-t0)
 
       loss = results['loss']
-      tf.logging.info('loss: %f', loss) # print the loss to screen
+      tf.compat.v1.logging.info('loss: %f', loss) # print the loss to screen
 
       if not np.isfinite(loss):
         raise Exception("Loss is not finite. Stopping.")
 
       if FLAGS.coverage:
         coverage_loss = results['coverage_loss']
-        tf.logging.info("coverage_loss: %f", coverage_loss) # print the coverage loss to screen
+        tf.compat.v1.logging.info("coverage_loss: %f", coverage_loss) # print the coverage loss to screen
 
       # get the summaries and iteration number so we can write summaries to tensorboard
       summaries = results['summaries'] # we will write these summaries to tensorboard using summary_writer
@@ -238,14 +238,14 @@ def run_eval(model, batcher, vocab):
     t0=time.time()
     results = model.run_eval_step(sess, batch)
     t1=time.time()
-    tf.logging.info('seconds for batch: %.2f', t1-t0)
+    tf.compat.v1.logging.info('seconds for batch: %.2f', t1-t0)
 
     # print the loss and coverage loss to screen
     loss = results['loss']
-    tf.logging.info('loss: %f', loss)
+    tf.compat.v1.logging.info('loss: %f', loss)
     if FLAGS.coverage:
       coverage_loss = results['coverage_loss']
-      tf.logging.info("coverage_loss: %f", coverage_loss)
+      tf.compat.v1.logging.info("coverage_loss: %f", coverage_loss)
 
     # add summaries
     summaries = results['summaries']
@@ -258,7 +258,7 @@ def run_eval(model, batcher, vocab):
     # If running_avg_loss is best so far, save this checkpoint (early stopping).
     # These checkpoints will appear as bestmodel-<iteration_number> in the eval dir
     if best_loss is None or running_avg_loss < best_loss:
-      tf.logging.info('Found new best model with %.3f running_avg_loss. Saving to %s', running_avg_loss, bestmodel_save_path)
+      tf.compat.v1.logging.info('Found new best model with %.3f running_avg_loss. Saving to %s', running_avg_loss, bestmodel_save_path)
       saver.save(sess, bestmodel_save_path, global_step=train_step, latest_filename='checkpoint_best')
       best_loss = running_avg_loss
 
@@ -271,8 +271,8 @@ def main(unused_argv):
   if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
     raise Exception("Problem with flags: %s" % unused_argv)
 
-  tf.logging.set_verbosity(tf.logging.INFO) # choose what level of logging you want
-  tf.logging.info('Starting seq2seq_attention in %s mode...', (FLAGS.mode))
+  tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO) # choose what level of logging you want
+  tf.compat.v1.logging.info('Starting seq2seq_attention in %s mode...', (FLAGS.mode))
 
   # Change log_root to FLAGS.log_root/FLAGS.exp_name and create the dir if necessary
   FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
@@ -305,7 +305,7 @@ def main(unused_argv):
   # Create a batcher object that will create minibatches of data
   batcher = Batcher(FLAGS.data_path, vocab, hps, single_pass=FLAGS.single_pass)
 
-  tf.set_random_seed(111) # a seed value for randomness
+  tf.compat.v1.set_random_seed(111) # a seed value for randomness
 
   if hps.mode == 'train':
     print("creating model...")
